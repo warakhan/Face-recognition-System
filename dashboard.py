@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import ttk, messagebox
 from tkcalendar import DateEntry
 import csv
 import os
@@ -11,7 +11,7 @@ from fpdf import FPDF
 # GUI setup
 root = tk.Tk()
 root.title("Attendance Dashboard")
-root.geometry("900x600")
+root.geometry("950x650")
 
 # ----- FUNCTIONS -----
 def get_class_list():
@@ -25,12 +25,16 @@ def load_attendance(file_path):
     except FileNotFoundError:
         messagebox.showerror("Error", f"File not found:\n{file_path}")
         return []
+    except Exception as e:
+        messagebox.showerror("Error", f"Error reading file:\n{e}")
+        return []
 
 def show_attendance():
     selected_class = class_var.get()
     selected_date = cal.get_date().strftime("%Y-%m-%d")
     file_path = f"attendance/{selected_class}/{selected_date}.csv"
 
+    # Load student list
     try:
         with open(f"classes/{selected_class}.txt", "r") as f:
             class_students = [line.strip() for line in f if line.strip()]
@@ -38,25 +42,31 @@ def show_attendance():
         messagebox.showerror("Error", f"Could not load students list for {selected_class}")
         return
 
+    # Load attendance
     records = load_attendance(file_path)
+
+    # Clear previous table
+    for row in tree.get_children():
+        tree.delete(row)
 
     present_students = []
     absent_students = []
 
-    # Clear table
-    for row in tree.get_children():
-        tree.delete(row)
-
     for rec in records:
-        if rec['Name'] in class_students:
-            tree.insert("", "end", values=(rec['Name'], rec['Date'], rec['Login Time'], rec['Logout Time']))
-            if rec['Login Time'].strip():
-                present_students.append(rec['Name'])
+        name = rec.get('Name', '').strip()
+        date = rec.get('Date', '')
+        login = rec.get('Login Time', '')
+        logout = rec.get('Logout Time', '')
+
+        if name in class_students:
+            tree.insert("", "end", values=(name, date, login, logout))
+            if login:
+                present_students.append(name)
 
     absent_students = [s for s in class_students if s not in present_students]
 
     draw_chart(len(present_students), len(absent_students), absent_students)
-    status_label.config(text=f" {selected_date} | 🤓 Present: {len(present_students)} |  Absent: {len(absent_students)}")
+    status_label.config(text=f"📅 {selected_date} | ✅ Present: {len(present_students)} | ❌ Absent: {len(absent_students)}")
 
 def draw_chart(present_count, absent_count, absent_students):
     for widget in right_frame.winfo_children():
@@ -64,7 +74,7 @@ def draw_chart(present_count, absent_count, absent_students):
 
     fig = plt.Figure(figsize=(4.5, 4), dpi=100)
     ax = fig.add_subplot(111)
-    wedges, texts, autotexts = ax.pie(
+    ax.pie(
         [present_count, absent_count],
         labels=["Present", "Absent"],
         autopct="%1.1f%%",
@@ -75,7 +85,7 @@ def draw_chart(present_count, absent_count, absent_students):
 
     if absent_students:
         absent_text = "Absent:\n" + "\n".join(absent_students)
-        fig.text(0.01, 0.01, absent_text, fontsize=9, verticalalignment='bottom')
+        fig.text(0.02, 0.01, absent_text, fontsize=8, verticalalignment='bottom')
 
     chart_canvas = FigureCanvasTkAgg(fig, master=right_frame)
     chart_canvas.draw()
@@ -96,9 +106,9 @@ def export_pdf():
     pdf.set_font("Arial", size=14)
     pdf.cell(200, 10, txt=f"Attendance Report: {selected_class} - {selected_date}", ln=True, align='C')
     pdf.set_font("Arial", size=10)
-
     pdf.ln(5)
-    pdf.set_fill_color(220, 220, 220)
+
+    pdf.set_fill_color(200, 220, 255)
     pdf.cell(50, 8, "Name", 1, 0, 'C', 1)
     pdf.cell(40, 8, "Date", 1, 0, 'C', 1)
     pdf.cell(50, 8, "Login Time", 1, 0, 'C', 1)
@@ -106,9 +116,9 @@ def export_pdf():
 
     for rec in records:
         pdf.cell(50, 8, rec['Name'], 1)
-        pdf.cell(40, 8, rec['Date'], 1)
-        pdf.cell(50, 8, rec['Login Time'], 1)
-        pdf.cell(50, 8, rec['Logout Time'], 1, 1)
+        pdf.cell(40, 8, rec.get("Date", ""), 1)
+        pdf.cell(50, 8, rec.get("Login Time", ""), 1)
+        pdf.cell(50, 8, rec.get("Logout Time", ""), 1, 1)
 
     out_name = f"Attendance_{selected_class}_{selected_date}.pdf"
     pdf.output(out_name)
@@ -127,10 +137,10 @@ class_dropdown.grid(row=0, column=0, padx=10)
 cal = DateEntry(top_frame, width=12, background='darkblue', foreground='white', borderwidth=2, date_pattern='yyyy-mm-dd')
 cal.grid(row=0, column=1, padx=10)
 
-btn = tk.Button(top_frame, text=" Show Attendance", command=show_attendance)
+btn = tk.Button(top_frame, text="📊 Show Attendance", command=show_attendance)
 btn.grid(row=0, column=2, padx=10)
 
-btn_export = tk.Button(top_frame, text=" Export PDF", command=export_pdf)
+btn_export = tk.Button(top_frame, text="📤 Export PDF", command=export_pdf)
 btn_export.grid(row=0, column=3, padx=10)
 
 status_label = tk.Label(root, text="", font=("Arial", 12))
