@@ -98,33 +98,44 @@ def mark_attendance(name):
         attendance_record[name][2] = current_time
 
 def update_frame():
-    global cap
     ret, frame = cap.read()
     if not ret:
         return
+
+    # Resize for faster face recognition processing
     small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
     rgb_small_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
+
     face_locations = face_recognition.face_locations(rgb_small_frame)
     face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
+
     for (top, right, bottom, left), face_encoding in zip(face_locations, face_encodings):
         matches = face_recognition.compare_faces(known_face_encodings, face_encoding)
         face_distance = face_recognition.face_distance(known_face_encodings, face_encoding)
-        best_match_index = np.argmin(face_distance)
-        if matches[best_match_index]:
-            name = known_face_names[best_match_index]
-            mark_attendance(name)
-            top *= 4
-            right *= 4
-            bottom *= 4
-            left *= 4
-            cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
-            cv2.putText(frame, name + " Present", (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 2)
+
+        name = "Unknown"
+        if len(face_distance) > 0:
+            best_match_index = np.argmin(face_distance)
+            if matches[best_match_index] and face_distance[best_match_index] < 0.5:
+                name = known_face_names[best_match_index]
+                mark_attendance(name)
+
+        # Scale back up face locations since the frame we detected in was scaled to 1/4 size
+        top *= 4
+        right *= 4
+        bottom *= 4
+        left *= 4
+
+        cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
+        cv2.putText(frame, name, (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (255, 0, 0), 2)
+
     img = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     img = Image.fromarray(img)
     imgtk = ImageTk.PhotoImage(image=img)
     video_label.imgtk = imgtk
     video_label.configure(image=imgtk)
-    root.after(10, update_frame)
+    video_label.after(10, update_frame)
+
 
 def start_attendance():
     global cap
@@ -170,7 +181,7 @@ def save_csv():
             writer.writerow(row)
 
 def send_email():
-    sender_email = "ammarkhan8217@gmail.com"
+    sender_email = "warakhan1901@gmail.com"
     sender_password = "zpsc lckl tywg brsq"
     recipients = ["warakhan86@gmail.com"]
     subject = "Daily Attendance Report"
