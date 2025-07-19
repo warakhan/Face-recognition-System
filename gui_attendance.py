@@ -170,7 +170,7 @@ def save_csv():
             writer.writerow(row)
 
 def send_email():
-    sender_email = "warakhan1901@gmail.com"
+    sender_email = "ammarkhan8217@gmail.com"
     sender_password = "zpsc lckl tywg brsq"
     recipients = ["warakhan86@gmail.com"]
     subject = "Daily Attendance Report"
